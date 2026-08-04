@@ -2,7 +2,7 @@
 """第 3 關：品質判定。呼叫模型當閱卷者，逐案評分，寫出 `<skill>_品質判定.json`。
 
 用法：
-  LLM_MODEL=<判定模型> LLM_API_KEY=<金鑰> python3 scripts/judge_llm.py <skill目錄或上層目錄...> \\
+  LLM_MODEL=<判定模型> python3 scripts/judge_llm.py <skill目錄或上層目錄...> \\
       [--out-dir 驗證報告] [--timeout 300] [--no-schema] [--skip-done]
 
 分工原則：**分數的算術不交給模型。** 模型只給五維度分數與問題清單；
@@ -260,7 +260,7 @@ def main():
     args = ap.parse_args()
 
     try:
-        _, _, model = llm_client.config()
+        _, model = llm_client.config()
     except llm_client.LLMError as exc:
         print(exc, file=sys.stderr)
         sys.exit(1)

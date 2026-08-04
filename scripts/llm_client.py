@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""OpenAI 相容 API 的最小用戶端。純標準庫，免安裝套件。
+"""OpenAI 相容伺服器的最小用戶端。純標準庫，免安裝套件。
 
-設定來自環境變數。
+設定來自環境變數，兩個都必填、沒有預設值——沒設就報錯，不替使用者猜。
 
-- `LLM_API_BASE`，API 位址，預設 `https://api.openai.com/v1`。自架或相容伺服器換成自己的位址。
-- `LLM_API_KEY`，金鑰。伺服器不驗金鑰時可不設。
-- `LLM_MODEL`，模型名稱。必填，沒有預設值——沒設就報錯，不替使用者猜模型。
+- `LLM_API_BASE`，伺服器位址（含 `/v1`）。
+- `LLM_MODEL`，模型名稱。
 
 timeout 必須設。沒有 timeout 的批次呼叫卡住時不是「慢」，是無聲停住：
 行程活著、log 零產出，從 ps 看不出來。
@@ -17,24 +16,23 @@ import time
 import urllib.error
 import urllib.request
 
-DEFAULT_BASE = "https://api.openai.com/v1"
 RETRY_STATUS = {429, 500, 502, 503, 504}
 
 
 class LLMError(RuntimeError):
-    """API 呼叫失敗。錯誤內文完整保留，不截斷。"""
+    """伺服器呼叫失敗。錯誤內文完整保留，不截斷。"""
 
 
 def config():
-    """讀環境變數，回傳 (base, key, model)。model 沒設直接報錯。"""
-    base = os.environ.get("LLM_API_BASE", DEFAULT_BASE).rstrip("/")
-    key = os.environ.get("LLM_API_KEY", "")
+    """讀環境變數，回傳 (base, model)。缺任一個直接報錯。"""
+    base = os.environ.get("LLM_API_BASE", "").rstrip("/")
     model = os.environ.get("LLM_MODEL", "")
-    if not model:
+    if not base or not model:
         raise LLMError(
-            "環境變數 LLM_MODEL 未設定。請指定模型名稱，例如：\n"
-            "  LLM_MODEL=<模型名> LLM_API_KEY=<金鑰> python3 scripts/run_cases.py <目錄>")
-    return base, key, model
+            "環境變數 LLM_API_BASE 與 LLM_MODEL 都必須設定，例如：\n"
+            "  LLM_API_BASE=<伺服器位址>/v1 LLM_MODEL=<模型名> "
+            "python3 scripts/run_cases.py <目錄>")
+    return base, model
 
 
 def chat(messages, *, model, response_format=None, tools=None,
@@ -44,8 +42,9 @@ def chat(messages, *, model, response_format=None, tools=None,
     暫時性失敗（連線錯誤、逾時、429、5xx）自動重試 retries 次。
     其他 HTTP 錯誤直接拋 LLMError，錯誤內文完整帶出。
     """
-    base, key, _ = os.environ.get("LLM_API_BASE", DEFAULT_BASE).rstrip("/"), \
-        os.environ.get("LLM_API_KEY", ""), None
+    base = os.environ.get("LLM_API_BASE", "").rstrip("/")
+    if not base:
+        raise LLMError("環境變數 LLM_API_BASE 未設定")
     body = {"model": model, "messages": messages}
     if response_format is not None:
         body["response_format"] = response_format
@@ -55,8 +54,6 @@ def chat(messages, *, model, response_format=None, tools=None,
         body["tool_choice"] = tool_choice
     payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
     headers = {"Content-Type": "application/json"}
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
 
     last_error = "未知錯誤"
     for attempt in range(retries + 1):

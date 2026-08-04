@@ -4,7 +4,7 @@
 
 這裡的 skill 指給大型語言模型（LLM）用的工具目錄，內含四樣東西，SKILL.md（給模型的執行規範）、tool.yaml（工具描述與派單資訊）、schemas/（輸入與輸出的欄位規格，JSON Schema 格式）、examples.json（測試案例）。附 `scripts/calc.py` 的 skill，數值由腳本計算，模型負責轉錄。
 
-機測零額度。實測與品質判定由模型執行，預設做法是把工具包交給你的 AI（agent），照包內《測試方法論.md》直接跑，零設定。選配是用腳本自動跑，接 OpenAI 相容服務（照 OpenAI 介面格式的模型服務，多數雲端與本機工具都支援）；金鑰（API key）也是選配，本機伺服器（Ollama、LM Studio）免金鑰。見「AI 呼叫設定（選配）」一節。
+機測零額度。實測與品質判定由模型執行，預設做法是把工具包交給你的 AI（agent），照包內《測試方法論.md》直接跑，零設定。選配是用腳本自動跑，接 OpenAI 相容伺服器（照 OpenAI 介面格式回應的模型服務）。見「AI 呼叫設定（選配）」一節。
 
 ## 四道關卡
 
@@ -27,11 +27,11 @@
 第 3、4 步的選配：沒有 agent 環境，或要批次自動化時，改用腳本接 OpenAI 相容服務。
 
 ```bash
-LLM_MODEL=<模型> LLM_API_KEY=<金鑰> python3 scripts/run_cases.py <目錄> --out-dir 驗證報告
-LLM_MODEL=<另一個模型> LLM_API_KEY=<金鑰> python3 scripts/judge_llm.py <目錄> --out-dir 驗證報告
+LLM_MODEL=<模型> python3 scripts/run_cases.py <目錄> --out-dir 驗證報告
+LLM_MODEL=<另一個模型> python3 scripts/judge_llm.py <目錄> --out-dir 驗證報告
 ```
 
-金鑰也是選配，本機模型免金鑰，設定見「AI 呼叫設定（選配）」。兩條路產出同一種存證與判定格式，後續關卡通吃。
+設定見「AI 呼叫設定（選配）」。兩條路產出同一種存證與判定格式，後續關卡通吃。
 
 重複驗證時，在第 2 步的指令加上 `--new-run`。工具建立新的結果目錄，同名目錄已存在時依序使用 `_重複驗證_01`、`_重複驗證_02`。執行結果第一行顯示本輪實際使用的目錄，後續存證與判定都使用該目錄。
 
@@ -45,14 +45,13 @@ LLM_MODEL=<另一個模型> LLM_API_KEY=<金鑰> python3 scripts/judge_llm.py <�
 
 | 變數 | 用途 |
 |---|---|
-| `LLM_MODEL` | 模型名稱。必填，沒有預設值 |
-| `LLM_API_KEY` | 金鑰。伺服器不驗金鑰時可不設 |
-| `LLM_API_BASE` | API 位址，預設 `https://api.openai.com/v1` |
+| `LLM_MODEL` | 模型名稱 |
+| `LLM_API_BASE` | 伺服器位址（含 `/v1`） |
 
-本機跑模型免金鑰。Ollama 與 LM Studio 內建 OpenAI 相容伺服器，把位址指過去就能跑：
+兩個變數都必填，沒有預設值。
 
 ```bash
-LLM_API_BASE=http://localhost:11434/v1 LLM_MODEL=qwen2.5:14b \
+LLM_API_BASE=http://localhost:<埠號>/v1 LLM_MODEL=<模型名> \
   python3 scripts/run_cases.py <目錄> --out-dir 驗證報告
 ```
 
@@ -60,7 +59,7 @@ LLM_API_BASE=http://localhost:11434/v1 LLM_MODEL=qwen2.5:14b \
 
 - 附 `scripts/calc.py` 的 skill 需要模型支援工具呼叫（tool-calling），不支援的模型只能跑純生成 skill。
 - 兩支腳本預設要求伺服器照輸出欄位規格回傳（`json_schema` 結構化輸出）。伺服器不支援時加 `--no-schema`，欄位規格的遵循改由第 3 關把關。實測時服務回 400 錯誤，多半是 response.json 不符嚴格模式（strict）要求，也就是 `required` 沒列全、缺 `additionalProperties: false`。這是交付檔的缺陷訊號，完整記在 `api_error` 欄位。
-- 閱卷評審用能力較強的模型。
+- 閱卷評審用能力強於實測執行者的模型。
 - 單次呼叫逾時預設 180 秒（判定 300 秒），`--timeout` 可調。單一案例失敗記 `api_error` 後繼續，不中斷整批。全程輸出同步寫 `<out-dir>/run_cases_全量.log` 與 `judge_llm_全量.log`。
 
 分數的算術由腳本執行。閱卷模型只給五維度分數與問題清單，`total_score`、`average_score`、`verdict` 由 `judge_llm.py` 依 `judge.py` 的同一套規則計算。實測模型與閱卷模型相同時腳本印警告，自己改自己的考卷，判定獨立性不足。

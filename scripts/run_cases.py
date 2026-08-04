@@ -2,7 +2,7 @@
 """第 2 關：實測。照 examples.json 逐案呼叫模型，寫出實測存證。
 
 用法：
-  LLM_MODEL=<模型> LLM_API_KEY=<金鑰> python3 scripts/run_cases.py <skill目錄或上層目錄...> \\
+  LLM_MODEL=<模型> python3 scripts/run_cases.py <skill目錄或上層目錄...> \\
       [--out-dir 驗證報告] [--timeout 180] [--no-schema] [--skip-done]
 
 行為：
@@ -293,7 +293,7 @@ def main():
     args = ap.parse_args()
 
     try:
-        _, _, model = llm_client.config()
+        _, model = llm_client.config()
     except llm_client.LLMError as exc:
         print(exc, file=sys.stderr)
         sys.exit(1)
