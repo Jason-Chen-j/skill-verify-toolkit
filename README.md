@@ -134,8 +134,8 @@ SKILL_DEID_BLOCKLIST='公司名稱,統一編號,內部帳號' python3 run_verify
 | `judge_selftest.py` | `judge.py` 的對照組，25 組正反例 | python3 |
 | `certify.py` | **第 4 關發證**。機測錯誤（ERROR）0 筆＋存證齊且比交付檔新＋品質判定平均 ≥ 80 且無嚴重問題，全過才在 skill 目錄寫 `certification.json`（見下節）。沒過不寫，已有舊證改寫 `certified: false` 撤銷 | python3＋存證＋品質判定 |
 | `format_evidence.py` | 存證檔統一格式（UTF-8、2 格縮排、補 `response` 欄位） | python3 |
-| `run_cases.py` | **第 2 關實測**。逐案呼叫模型產出存證；附 calc.py 的 skill 走工具呼叫，腳本實際執行 calc.py 並記 `tool_calls` | python3＋AI 呼叫設定 |
-| `judge_llm.py` | **第 3 關閱卷**。呼叫模型逐案評分產出品質判定檔；total_score、average_score、verdict 由腳本計算 | python3＋AI 呼叫設定＋存證 |
+| `run_cases.py` | **第 2 關實測**。逐案呼叫模型產出存證；附 calc.py 的 skill 走工具呼叫，腳本實際執行 calc.py 並記 `tool_calls` | python3＋AI 呼叫設定（選配） |
+| `judge_llm.py` | **第 3 關閱卷**。呼叫模型逐案評分產出品質判定檔；total_score、average_score、verdict 由腳本計算 | python3＋AI 呼叫設定（選配）＋存證 |
 | `llm_client.py` | OpenAI 相容服務的最小用戶端，前兩支共用。純標準庫 | python3 |
 
 ## certification.json
