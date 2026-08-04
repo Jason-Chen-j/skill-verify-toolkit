@@ -13,8 +13,8 @@
   1. 檔案齊全（tool.yaml / SKILL.md / schemas/request.json / schemas/response.json / examples.json）
   2. tool.yaml 6 必填 + name 格式 + kind + 路徑對應 + vendor
      contact：必填、須合法 email、不得是範例預設值（ERROR 級，因為它是平台的對外窗口）
-  3. examples.json：至少 3 組、key 用 user_query + input（抓 api_input / skill_input）
-     input 的內容不驗 schema——範例品質由平台試跑 LLM 把關（2026-07-28 拍板）
+  3. examples.json：至少 3 組，每組 key 用 user_query + input
+     input 的內容不驗 schema，範例品質由品質判定把關
   4. schemas JSON 合法
   5. SKILL.md 三條必寫規則（不反問 / 待補禁編造 / 繁體中文）
   6. SKILL.md 覆蓋 response.json 頂層必填欄位名
@@ -207,8 +207,8 @@ def check_skill(skill_dir):
         # 原本卡死 != 3，會把合規的交件報成 WARN，變成拿內規當退件理由。以客戶規格為準。
         if len(examples) < 3:
             W("examples", f"範例只有 {len(examples)} 組（平台 §2.3 要求至少 3 組）")
-        # input 的「內容」不驗 request schema（缺必填、多欄位、enum 對不上都放行）。
-        # 2026-07-28 拍板：範例品質由平台試跑 LLM 把關，機測只管外層 key 名。
+        # 機測只管外層 key 名。input 的內容（缺必填、多欄位、enum 對不上）
+        # 由品質判定把關，這裡放行。
         for i, ex in enumerate(examples, 1):
             keys = set(ex.keys()) if isinstance(ex, dict) else set()
             wrong = keys & {"api_input", "skill_input", "request", "params"}
