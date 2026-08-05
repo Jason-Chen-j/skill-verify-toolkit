@@ -132,7 +132,7 @@ SKILL_DEID_BLOCKLIST='公司名稱,統一編號,內部帳號' python3 run_verify
 | `check_routing.py` | 派單觸發語衝突。可攜用法，`python3 scripts/check_routing.py <skills根目錄...>` | python3 |
 | `judge.py` | **第 3 關判定**。驗存證、schema、數值與品質判定資料，產出《判定報告.md》，總入口再整合成《驗證總覽.md》與《驗證明細.md》 | python3＋存證＋品質判定檔 |
 | `judge_selftest.py` | `judge.py` 的對照組，25 組正反例 | python3 |
-| `certify.py` | **第 4 關發證**。機測錯誤（ERROR）0 筆＋存證齊且比交付檔新＋品質判定平均 ≥ 80 且無嚴重問題，全過才在 skill 目錄寫 `certification.json`（見下節）。沒過不寫，已有舊證改寫 `certified: false` 撤銷 | python3＋存證＋品質判定 |
+| `certify.py` | **第 4 關發證**。機測錯誤（ERROR）0 筆＋存證齊且比交付檔新＋品質判定平均 ≥ 80 且無嚴重問題，全過才在 skill 目錄寫 `certification.json`（見下節）。沒過不寫，已有舊證改寫 `certified: false` 撤銷。覆蓋前舊證自動備份到存證目錄的 `證書備份/`，不進 skill 目錄 | python3＋存證＋品質判定 |
 | `format_evidence.py` | 存證檔統一格式（UTF-8、2 格縮排、補 `response` 欄位） | python3 |
 | `run_cases.py` | **第 2 關實測**。逐案呼叫模型產出存證；附 calc.py 的 skill 走工具呼叫，腳本實際執行 calc.py 並記 `tool_calls` | python3＋AI 呼叫設定（選配） |
 | `judge_llm.py` | **第 3 關閱卷**。呼叫模型逐案評分產出品質判定檔；total_score、average_score、verdict 由腳本計算 | python3＋AI 呼叫設定（選配）＋存證 |
@@ -141,6 +141,8 @@ SKILL_DEID_BLOCKLIST='公司名稱,統一編號,內部帳號' python3 run_verify
 ## certification.json
 
 發證產物是 skill 目錄內的單一 JSON 檔，自包含、無狀態（不依賴任何外部紀錄）。讀取端看 `certified` 一個欄位就知道通過與否，要驗完整性再重算 `content_hash` 比對。每次發證重新驗全部關卡。
+
+重新驗證後發證一律直接覆蓋現有 `certification.json`。覆蓋（含撤銷改寫）前，`certify.py` 自動把舊證備份到存證目錄的 `證書備份/`，檔名帶舊證的 `certified_at`。備份放在 skill 目錄外，不進交付包；備份目錄落在 skill 目錄內時程式直接報錯拒跑。
 
 | 欄位 | 意義 |
 |---|---|

@@ -18,6 +18,13 @@
 任一關沒過就不寫新檔。例外：目錄裡已經有一份 certification.json（代表曾經通過過），
 這次沒過就把它改寫成 certified: false（撤銷），不留一份說謊的舊證書在那裡。
 
+## 覆蓋與備份（強制，寫在程式裡不靠人記得）
+
+重新驗證後發證一律直接覆蓋現有 certification.json，不保留舊證在原位。
+每次覆蓋（含撤銷改寫）前，程式自動把舊證備份到存證目錄的「證書備份/」，
+檔名帶舊證的 certified_at。備份一律放在 skill 目錄外——備份檔不是交付內容，
+不能跟著交付包走；備份目錄若落在 skill 目錄內，程式直接報錯拒跑。
+
 ## content_hash 演算法（外部要能重算）
 
 取 skill 資料夾內全部檔案，排除 certification.json、.DS_Store、__pycache__/、*.pyc；
@@ -44,6 +51,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -416,8 +424,41 @@ def build_cert(skill_dir: Path, stype: str, certified: bool,
     }
 
 
-def atomic_write_cert(skill_dir: Path, cert: dict[str, object]) -> None:
-    """先寫暫存檔再 os.replace，避免寫到一半被讀到半份 JSON。"""
+def backup_old_cert(skill_dir: Path, evidence_dir: Path) -> Path | None:
+    """覆蓋前把現有 certification.json 備份到存證目錄的「證書備份/」。
+
+    備份一律放 skill 目錄外——備份檔不是交付內容，不能跟著交付包走。
+    備份目錄落在 skill 目錄內時直接報錯，不寫任何檔。
+    檔名帶舊證的 certified_at；舊證讀不出時退回檔案 mtime。
+    """
+    target = skill_dir / "certification.json"
+    if not target.is_file():
+        return None
+    backup_dir = (evidence_dir / "證書備份").resolve()
+    if backup_dir.is_relative_to(skill_dir.resolve()):
+        raise SystemExit(f"備份目錄不可在 skill 目錄內：{backup_dir}")
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    ts = ""
+    try:
+        old = _json_loads(target.read_text(encoding="utf-8"))
+        if isinstance(old, dict):
+            raw = old.get("certified_at")
+            if isinstance(raw, str) and raw.strip():
+                ts = raw.strip().replace(":", "")
+    except (OSError, ValueError):
+        pass
+    if not ts:
+        ts = (datetime.fromtimestamp(target.stat().st_mtime).astimezone()
+              .isoformat(timespec="seconds").replace(":", ""))
+    backup = backup_dir / f"{skill_dir.name}_certification_{ts}.json"
+    _ = shutil.copy2(target, backup)
+    return backup
+
+
+def atomic_write_cert(skill_dir: Path, cert: dict[str, object],
+                      evidence_dir: Path) -> None:
+    """先備份舊證，再走暫存檔＋os.replace 寫入，避免讀到半份 JSON。"""
+    backup = backup_old_cert(skill_dir, evidence_dir)
     target = skill_dir / "certification.json"
     text = json.dumps(cert, ensure_ascii=False, indent=2) + "\n"
     fd, tmp_path = tempfile.mkstemp(dir=str(skill_dir), prefix=".certification_", suffix=".tmp")
@@ -432,6 +473,8 @@ def atomic_write_cert(skill_dir: Path, cert: dict[str, object]) -> None:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
         raise
+    if backup is not None:
+        print(f"    舊證已備份：{backup}")
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────
@@ -485,7 +528,7 @@ def main() -> int:
         if not problems:
             cert = build_cert(skill_dir, stype, True, score, tested)
             if not dry_run:
-                atomic_write_cert(skill_dir, cert)
+                atomic_write_cert(skill_dir, cert, evidence_dir)
             print(f"✅ {skill_dir.name}｜{stype}｜certified")
             if dry_run:
                 print(f"    會寫入 {cert_path}：")
@@ -497,7 +540,7 @@ def main() -> int:
         if cert_path.is_file():
             cert = build_cert(skill_dir, stype, False, score, tested)
             if not dry_run:
-                atomic_write_cert(skill_dir, cert)
+                atomic_write_cert(skill_dir, cert, evidence_dir)
             print(f"↩️  {skill_dir.name}｜{stype}｜撤銷（原有 certification.json 改為 certified: false）")
             if dry_run:
                 print(f"    會寫入 {cert_path}：")
